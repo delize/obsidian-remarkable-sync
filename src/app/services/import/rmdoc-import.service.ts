@@ -9,6 +9,7 @@ import {
     isPageRenderingSupported
 } from '../renderer/page-renderer.service'
 import { renderAndWritePages } from '../output/document-output.service'
+import { reportLegacyOutputPaths } from '../output/legacy-paths'
 import type { ProgressCallback } from '../pipeline/notebook-pipeline.service'
 
 export interface RmdocImportService {
@@ -132,6 +133,10 @@ export function createRmdocImportService(plugin: RemarkableSyncPlugin): RmdocImp
                 onProgress({ status: 'done', currentPage: 0, totalPages: 0 })
                 return true
             }
+
+            // See the pipeline: report output left at the pre-sanitisation
+            // path, and leave the cleanup to the user.
+            await reportLegacyOutputPaths(plugin.app.vault, settings.targetFolder, '', displayName)
 
             // Step 3: Render each page and write the enabled outputs
             const { totalPages, failedPages } = await renderAndWritePages({

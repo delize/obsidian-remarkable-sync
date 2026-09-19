@@ -18,6 +18,7 @@ import {
 import { buildPdf } from '../output/pdf-writer.service'
 import { annotateSourcePdf } from '../output/pdf-annotator.service'
 import { renderAndWritePages } from '../output/document-output.service'
+import { reportLegacyOutputPaths } from '../output/legacy-paths'
 
 export type PipelineStatus = 'idle' | 'downloading' | 'parsing' | 'rendering' | 'done' | 'error'
 
@@ -119,6 +120,16 @@ export function createNotebookPipelineService(
                 onProgress({ status: 'done', currentPage: 0, totalPages: 0 })
                 return true
             }
+
+            // Names are sanitised on the way to a path, so output for a
+            // notebook whose name has changed shape now lands somewhere new.
+            // Tell the user where the old output is; never move it for them.
+            await reportLegacyOutputPaths(
+                plugin.app.vault,
+                settings.targetFolder,
+                notebook.folderPath,
+                notebook.visibleName
+            )
 
             // Step 3: Render each page and write the enabled outputs
             const { totalPages, failedPages } = await renderAndWritePages(

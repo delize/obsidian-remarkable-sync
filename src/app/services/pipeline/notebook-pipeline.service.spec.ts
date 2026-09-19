@@ -21,10 +21,10 @@ function contentPage(pageIndex: number): Page {
     }
 }
 
-function summary(): NotebookSummary {
+function summary(visibleName = 'Test notebook'): NotebookSummary {
     return {
         id: 'nb-1',
-        visibleName: 'Test notebook',
+        visibleName,
         parent: '',
         lastModified: '1700000000000',
         pageCount: 3,
@@ -213,5 +213,22 @@ describe('processNotebook', () => {
         await harness.service.processNotebook(summary(), (p) => harness.progress.push(p))
 
         expect(harness.updateStateCalls).toEqual([{ remarkableId: 'nb-1', syncedPageCount: 2 }])
+    })
+})
+
+describe('names that need sanitising', () => {
+    test('a failure in the legacy-path report cannot break the sync', async () => {
+        // The harness vault is `{}`, so the reporter's lookup throws. That
+        // must stay contained: it is advisory output, and a sync that would
+        // otherwise succeed must still succeed.
+        const harness = createHarness({ pages: [contentPage(0)] })
+
+        const ok = await harness.service.processNotebook(summary('Trips/Japan'), (p) =>
+            harness.progress.push(p)
+        )
+
+        expect(ok).toBe(true)
+        expect(harness.progress.at(-1)!.status).toBe('done')
+        expect(harness.written).toEqual([0])
     })
 })
