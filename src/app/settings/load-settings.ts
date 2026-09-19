@@ -4,6 +4,8 @@ import {
     MIN_AUTO_SYNC_INTERVAL_MINUTES
 } from '../types/plugin-settings.intf'
 import type { PluginSettings } from '../types/plugin-settings.intf'
+import { log } from '../../utils/log'
+import { sanitiseRelativePath } from '../../utils/sanitise-path'
 
 const IMAGE_FORMATS: ReadonlySet<string> = new Set(['png', 'jpeg', 'webp'])
 
@@ -72,6 +74,19 @@ export function mergeLoadedSettings(loaded: unknown): PluginSettings {
             MAX_AUTO_SYNC_INTERVAL_MINUTES
         )
     }
+    // `typeof` says "string", which does not stop `../../etc` from escaping
+    // the vault or a `:` from breaking the write on Windows. Sanitised rather
+    // than rejected: this path is non-interactive and must not break startup.
+    const safeTargetFolder = sanitiseRelativePath(merged.targetFolder)
+    if (safeTargetFolder !== merged.targetFolder) {
+        log(
+            `Target folder "${merged.targetFolder}" is not a usable vault path; ` +
+                `using "${safeTargetFolder}"`,
+            'warn'
+        )
+        merged.targetFolder = safeTargetFolder
+    }
+
     // Everything downstream iterates `syncStore.notebooks`; an array or a
     // missing map would throw far from here.
     const store = merged.syncStore as unknown

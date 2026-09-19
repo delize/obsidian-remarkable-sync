@@ -153,3 +153,24 @@ describe('mergeLoadedSettings validation', () => {
         expect(mergeLoadedSettings({ syncStore: valid }).syncStore).toEqual(valid as never)
     })
 })
+
+describe('mergeLoadedSettings target folder', () => {
+    test('contains a traversal from a hand-edited data.json', () => {
+        // `typeof` says "string", which does not stop `../../etc` from
+        // escaping the vault. Sanitised rather than rejected: loading must not
+        // break startup.
+        expect(mergeLoadedSettings({ targetFolder: '../../etc' }).targetFolder).toBe('etc')
+    })
+
+    test('replaces characters that break a write on another platform', () => {
+        expect(mergeLoadedSettings({ targetFolder: 'rM:notes' }).targetFolder).toBe('rM-notes')
+    })
+
+    test('leaves a usable path alone', () => {
+        // The vault root is the documented default and must survive.
+        expect(mergeLoadedSettings({ targetFolder: '' }).targetFolder).toBe('')
+        expect(mergeLoadedSettings({ targetFolder: 'reMarkable/Notes' }).targetFolder).toBe(
+            'reMarkable/Notes'
+        )
+    })
+})

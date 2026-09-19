@@ -19,6 +19,7 @@ import {
 } from '../services/auth/token-store'
 import { BUY_ME_A_COFFEE_BADGE_DATA_URL } from '../assets/buy-me-a-coffee'
 import { BUY_ME_A_COFFEE_URL, renderSupportSection } from '../ui/support-links'
+import { validateVaultFolderPath } from '../../utils/sanitise-path'
 
 /**
  * The settings keys owned by plain declarative controls, i.e. everything the
@@ -228,7 +229,12 @@ export class RemarkableSyncSettingTab extends PluginSettingTab {
                         control: {
                             type: 'text',
                             key: 'targetFolder',
-                            placeholder: 'e.g., reMarkable'
+                            placeholder: 'e.g., reMarkable',
+                            // Refused rather than quietly rewritten: silently
+                            // changing what someone just typed into a field is
+                            // worse than telling them why it cannot be used.
+                            validate: (value: string): string | void =>
+                                validateVaultFolderPath(value.trim()) ?? undefined
                         }
                     },
                     {
@@ -429,6 +435,10 @@ export class RemarkableSyncSettingTab extends PluginSettingTab {
                     throw new Error(`Setting "${key}" expects a string.`)
                 }
                 const trimmed = value.trim()
+                const invalid = validateVaultFolderPath(trimmed)
+                if (invalid) {
+                    throw new Error(invalid)
+                }
                 await this.plugin.updateSettings((draft) => {
                     draft.targetFolder = trimmed
                 })

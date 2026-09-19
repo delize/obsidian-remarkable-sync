@@ -194,3 +194,22 @@ describe('setControlValue', () => {
         expect(saveData).not.toHaveBeenCalled()
     })
 })
+
+describe('setControlValue targetFolder', () => {
+    test('refuses a traversal and leaves the stored value alone', async () => {
+        const h = createHarness()
+        await expectRejection(h.tab.setControlValue('targetFolder', '../../etc'), 'Folder path')
+        expect(h.plugin.settings.targetFolder).toBe(DEFAULT_SETTINGS.targetFolder)
+    })
+
+    test('refuses a character that breaks a write on another platform', async () => {
+        const h = createHarness()
+        await expectRejection(h.tab.setControlValue('targetFolder', 'rM:notes'), 'Folder path')
+    })
+
+    test('accepts and trims a usable path', async () => {
+        const h = createHarness()
+        await h.tab.setControlValue('targetFolder', '  reMarkable/Notes  ')
+        expect(h.plugin.settings.targetFolder).toBe('reMarkable/Notes')
+    })
+})
