@@ -19,15 +19,30 @@ export function buildPagePath(
     pageIndex: number,
     extension: string
 ): string {
+    const pageNum = String(pageIndex + 1).padStart(3, '0')
+    const fileName = `${sanitiseName(notebookName)}-P${pageNum}.${extension}`
+
+    return `${buildPageFolderPath(targetFolder, folderPath, notebookName)}/${fileName}`
+}
+
+/**
+ * The per-notebook folder that page images are written into.
+ *
+ * Split out of `buildPagePath` so the migration reporter can name this folder
+ * directly. It used to derive it by building a page path and dropping the last
+ * segment, which quietly depended on the file name never containing a `/` and
+ * would have gone wrong the moment the layout changed.
+ */
+export function buildPageFolderPath(
+    targetFolder: string,
+    folderPath: string,
+    notebookName: string
+): string {
     // `folderPath` arrives pre-joined from the cloud service, so it is
     // sanitised per segment; the notebook name is one component and is used
     // for both the folder and the file stem.
     const safeTarget = sanitiseRelativePath(targetFolder)
     const safeFolders = sanitiseRelativePath(folderPath)
-    const safeName = sanitiseName(notebookName)
-
-    const pageNum = String(pageIndex + 1).padStart(3, '0')
-    const fileName = `${safeName}-P${pageNum}.${extension}`
 
     const parts: string[] = []
     if (safeTarget) {
@@ -36,8 +51,7 @@ export function buildPagePath(
     if (safeFolders) {
         parts.push(safeFolders)
     }
-    parts.push(safeName)
-    parts.push(fileName)
+    parts.push(sanitiseName(notebookName))
 
     return parts.join('/')
 }

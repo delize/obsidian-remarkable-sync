@@ -1,7 +1,7 @@
 import { Notice } from 'obsidian'
 import type { Vault } from 'obsidian'
 import { log } from '../../../utils/log'
-import { ANNOTATED_SUFFIX, buildDocumentPath, buildPagePath } from './markdown-writer.service'
+import { ANNOTATED_SUFFIX, buildDocumentPath, buildPageFolderPath } from './markdown-writer.service'
 import { HIGHLIGHTS_SUFFIX, TYPED_TEXT_SUFFIX } from './document-output.service'
 
 /** Where output used to land, and where it lands now. */
@@ -14,8 +14,9 @@ export interface LegacyPathPair {
  * Paths already reported this session, so a repeat sync stays quiet.
  *
  * Automatic sync runs on a timer over every notebook, so an unconditional
- * Notice would repeat forever for anyone who chooses not to clean up. The log
- * line still fires every run, so the console record stays complete.
+ * Notice would repeat forever for anyone who chooses not to clean up. One
+ * summary log line still fires every run, so the console record stays
+ * complete.
  */
 const notified = new Set<string>()
 
@@ -44,6 +45,13 @@ function joinRaw(...parts: readonly string[]): string {
  * `sanitiseName` is idempotent: a clean name has to survive unchanged, or every
  * notebook in the vault would look like it had moved.
  *
+ * BLIND to a `targetFolder` that moved. `load-settings.ts` sanitises that value
+ * on the way in, so what arrives here is already clean and compares equal to
+ * itself. Only `folderPath` and `notebookName` reach this function raw, because
+ * they come from the device. Reporting a `targetFolder` move would mean keeping
+ * the pre-sanitisation value in the settings schema, which is a bigger change
+ * than this reporter.
+ *
  * Probes the per-notebook image FOLDER rather than each page image, which is
  * what keeps this at six lookups whether the notebook has three pages or three
  * hundred.
@@ -59,10 +67,7 @@ export function buildLegacyPathPairs(
         {
             // The per-notebook image folder.
             oldPath: joinRaw(oldBase, notebookName),
-            newPath: buildPagePath(targetFolder, folderPath, notebookName, 0, 'x')
-                .split('/')
-                .slice(0, -1)
-                .join('/')
+            newPath: buildPageFolderPath(targetFolder, folderPath, notebookName)
         },
         ...(
             [
@@ -120,12 +125,17 @@ export async function reportLegacyOutputPaths(
         return found
     }
 
+    // ONE line per notebook, not one per pair. Automatic sync runs on a timer
+    // over every notebook, and six lines each turns a 50-notebook vault into
+    // 300 lines of identical warning per cycle, forever. The paths are listed
+    // at 'debug' so the full record is still there when someone goes looking.
+    log(
+        `${notebookName}: ${found.length} output path(s) may still exist under ` +
+            `"${found[0]?.oldPath ?? ''}" and similar. Nothing was moved or deleted.`,
+        'warn'
+    )
     for (const pair of found) {
-        log(
-            `Output may still exist at the old path "${pair.oldPath}"; ` +
-                `new output goes to "${pair.newPath}". Nothing was moved or deleted.`,
-            'warn'
-        )
+        log(`  old "${pair.oldPath}" -> new "${pair.newPath}"`, 'debug')
     }
 
     const first = found[0]
