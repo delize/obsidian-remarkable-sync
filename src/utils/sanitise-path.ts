@@ -43,8 +43,20 @@ function stripControlCharacters(value: string): string {
 /** Obsidian excludes dot-prefixed files from the vault index entirely. */
 const LEADING_DOTS = /^\.+/
 
-/** Windows strips these at creation time, silently moving the file. */
-const TRAILING_DOTS_AND_SPACES = /[. ]+$/
+/**
+ * Windows strips a trailing dot or space at creation time, silently moving the
+ * file, so they go here.
+ *
+ * `\s` rather than a literal space because this runs AFTER `trim()`: removing a
+ * trailing dot can expose a non-breaking space or a BOM that `trim()` would
+ * have taken, and there is no second trim to catch it. Matching all trimmable
+ * whitespace keeps the result stable in one pass.
+ *
+ * Kept immediately after `truncate` on purpose. The `+$` shape is quadratic on
+ * a long run, and the 150-byte cap in front of it is what makes that
+ * unreachable. Do not move this above the truncate.
+ */
+const TRAILING_DOTS_AND_SPACES = /[\s.]+$/
 
 const ONLY_HYPHENS = /^-+$/
 
@@ -55,15 +67,41 @@ const ONLY_HYPHENS = /^-+$/
  * them would make the character rule portable and the name rule not, which is
  * incoherent. The failure without it is a bare `EINVAL` from the adapter, on
  * Windows only, with nothing in the message to explain it.
+ *
+ * `com0` and `lpt0` are included: modern Windows reserves them alongside 1-9.
+ * The superscript forms are there because Windows folds `COM\u00b9`, `COM\u00b2`
+ * and `COM\u00b3` onto `COM1`, `COM2` and `COM3`, so a name that looks
+ * perfectly ordinary fails the same way.
  */
 const RESERVED_DEVICE_NAMES: ReadonlySet<string> = new Set([
     'con',
     'prn',
     'aux',
     'nul',
-    ...Array.from({ length: 9 }, (_, i) => `com${i + 1}`),
-    ...Array.from({ length: 9 }, (_, i) => `lpt${i + 1}`)
+    ...Array.from({ length: 10 }, (_, i) => `com${i}`),
+    ...Array.from({ length: 10 }, (_, i) => `lpt${i}`),
+    ...['\u00b9', '\u00b2', '\u00b3'].flatMap((digit) => [`com${digit}`, `lpt${digit}`])
 ])
+
+/**
+ * Append a hyphen to the reserved STEM, not to the whole component.
+ *
+ * Windows looks at the text before the FIRST dot, so `nul.tar` is as reserved
+ * as `nul`. Suffixing the whole component would give `nul.tar-`, whose stem is
+ * still `nul`, so it would stay reserved AND grow another hyphen on every
+ * pass. Suffixing the stem gives `nul-.tar`, which is safe and stable, and
+ * idempotence is a hard requirement here.
+ */
+function escapeReservedDeviceName(name: string): string | null {
+    const dot = name.indexOf('.')
+    const stem = dot <= 0 ? name : name.slice(0, dot)
+
+    if (!RESERVED_DEVICE_NAMES.has(stem.toLowerCase())) {
+        return null
+    }
+
+    return dot <= 0 ? `${name}-` : `${stem}-${name.slice(dot)}`
+}
 
 /** What a name becomes when sanitising leaves nothing usable. */
 export const FALLBACK_NAME = 'Untitled'
@@ -73,8 +111,14 @@ export const FALLBACK_NAME = 'Untitled'
  *
  * ext4 and APFS cap a path component at 255 bytes, so a 100-character CJK name
  * is 300 bytes and fails. 150 leaves room for what callers append afterwards
- * (`-P001.jpeg`, `.pdf`, ` (annotated)`) and keeps a nested path clear of
- * Windows' 260-character path limit.
+ * (`-P001.jpeg`, `.pdf`, ` (annotated)`).
+ *
+ * This does NOT guarantee a path under Windows' 260-character limit, and it is
+ * not trying to. `buildPagePath` spends the name TWICE (once as the image
+ * folder, once as the file stem), so two names at this cap already exceed 260
+ * before the vault root is counted. Per-component legality is what this cap
+ * buys; whole-path length is a separate problem that a per-component rule
+ * cannot solve.
  */
 export const MAX_NAME_BYTES = 150
 
@@ -153,8 +197,11 @@ function truncate(name: string): string {
 export function sanitiseName(name: string): string {
     let result = stripControlCharacters(name)
     result = result.replace(UNSAFE_CHARACTERS, '-')
-    result = result.replace(LEADING_DOTS, '-')
+    // Trim BEFORE the leading-dot check: `^\.+` does not match " .hidden", so
+    // trimming afterwards exposed a dot with nothing left to catch it, and the
+    // name kept the prefix Obsidian excludes from the vault index.
     result = result.trim()
+    result = result.replace(LEADING_DOTS, '-')
     result = truncate(result)
     result = result.replace(TRAILING_DOTS_AND_SPACES, '')
 
@@ -164,11 +211,7 @@ export function sanitiseName(name: string): string {
         return FALLBACK_NAME
     }
 
-    if (RESERVED_DEVICE_NAMES.has(result.toLowerCase())) {
-        return `${result}-`
-    }
-
-    return result
+    return escapeReservedDeviceName(result) ?? result
 }
 
 /**

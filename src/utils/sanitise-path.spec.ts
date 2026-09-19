@@ -27,7 +27,13 @@ const HOSTILE_NAMES: readonly string[] = [
     'x'.repeat(200),
     '名前'.repeat(80),
     'hascontrol',
-    'Notes [v2] ^block|alias'
+    'Notes [v2] ^block|alias',
+    // The two idempotence breaks fuzzing turned up. Both are ORDERING
+    // bugs, and neither is visible without running sanitiseName twice.
+    ' .hidden',
+    '<name\u{feff}.  ',
+    'nul.tar',
+    'COM\u00b9'
 ]
 
 describe('sanitiseName', () => {
@@ -84,11 +90,42 @@ describe('sanitiseName', () => {
     })
 
     test('suffixes Windows reserved device names', () => {
-        // Reserved whatever the extension: `CON.md` is still `CON`.
         expect(sanitiseName('CON')).toBe('CON-')
         expect(sanitiseName('con')).toBe('con-')
         expect(sanitiseName('com9')).toBe('com9-')
         expect(sanitiseName('LPT1')).toBe('LPT1-')
+        // com0 and lpt0 are reserved on modern Windows too.
+        expect(sanitiseName('com0')).toBe('com0-')
+        expect(sanitiseName('lpt0')).toBe('lpt0-')
+        // Windows folds the superscript digits onto COM1-3.
+        expect(sanitiseName('COM\u00b9')).toBe('COM\u00b9-')
+    })
+
+    test('suffixes a reserved name that carries an extension', () => {
+        // Windows reads the text before the FIRST dot, so `nul.tar` is as
+        // reserved as `nul`. The hyphen goes on the STEM: suffixing the whole
+        // component would leave the stem reserved and grow another hyphen on
+        // every pass, which breaks idempotence.
+        expect(sanitiseName('nul.tar')).toBe('nul-.tar')
+        expect(sanitiseName('AUX.notes')).toBe('AUX-.notes')
+        expect(sanitiseName('nul.tar.pdf')).toBe('nul-.tar.pdf')
+    })
+
+    test('strips whitespace before testing for a leading dot', () => {
+        // `^\.+` does not match " .hidden", so trimming AFTERWARDS exposed a
+        // dot with nothing left to catch it, and the name kept the prefix
+        // Obsidian excludes from the vault index. Fuzzing found this by
+        // running sanitiseName twice; a single pass looks fine.
+        expect(sanitiseName(' .hidden')).toBe('-hidden')
+        expect(sanitiseName('\u00a0.hidden')).toBe('-hidden')
+    })
+
+    test('removes whitespace a trailing dot was hiding', () => {
+        // Stripping the trailing dot EXPOSES the BOM behind it, and the trim
+        // has already run by then. The trailing class has to cover every
+        // character trim would take, not just the literal space.
+        expect(sanitiseName('name\u{feff}.')).toBe('name')
+        expect(sanitiseName('name\u00a0.  ')).toBe('name')
     })
 
     test('leaves names that merely start with a reserved word', () => {

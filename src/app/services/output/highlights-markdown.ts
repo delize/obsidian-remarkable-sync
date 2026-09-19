@@ -171,16 +171,6 @@ export function hasHighlights(pages: readonly Page[]): boolean {
 }
 
 /**
- * Build a markdown note listing every text highlight in a document.
- *
- * The text comes from the device verbatim, so it is what was actually selected
- * rather than anything reconstructed from stroke geometry.
- *
- * No date or counter is included: the note must be byte-identical when the
- * document has not changed, so the skip-if-unchanged write guard can leave it
- * alone.
- */
-/**
  * The link target for a document the writer produced.
  *
  * Applies the writer's own naming rule rather than a second, different escape
@@ -200,6 +190,16 @@ export function toWikilinkTarget(fileName: string): string {
     return `${sanitiseName(fileName.slice(0, dot))}${fileName.slice(dot)}`
 }
 
+/**
+ * Build a markdown note listing every text highlight in a document.
+ *
+ * The text comes from the device verbatim, so it is what was actually selected
+ * rather than anything reconstructed from stroke geometry.
+ *
+ * No date or counter is included: the note must be byte-identical when the
+ * document has not changed, so the skip-if-unchanged write guard can leave it
+ * alone.
+ */
 export function buildHighlightsNote(options: HighlightNoteOptions): string {
     const { documentName, pages, annotatedPath } = options
     const byPage = collect(pages)
