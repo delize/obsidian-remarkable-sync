@@ -115,3 +115,21 @@ For a document imported from a PDF, you get the original plus an annotated copy 
 A document imported from an EPUB is written through as `{Name}.epub`, unchanged and unannotated.
 
 Blank pages are skipped entirely. A page is blank only when it has no handwriting, no typed text, no highlight and no placed image (dragged in from the desktop app on reMarkable OS 3.27, or made with the 3.28 capture tool). Skipping means PDF page numbers do not necessarily match the page numbers on your device. Pages that fail to render are skipped too, and the plugin reports how many.
+
+### Names with unusual characters
+
+Your reMarkable lets you name a notebook with characters a file system cannot
+carry. Those become a hyphen before anything is written, so `Q3/Q4 review`
+produces a single file called `Q3-Q4 review`, not two nested folders.
+
+Replaced everywhere: `\ / : * ? " < > | [ ] # ^`, plus a leading dot. The same
+rule is applied whatever computer you are on, because a vault is often synced
+between them and a name that works on a Mac can be unusable on Windows or
+Android. `[ ] # ^ |` are replaced too: they are legal in a file name on macOS
+but break links inside Obsidian. A name made up entirely of such characters
+becomes `Untitled`, and a very long one is shortened.
+
+**Upgrading from an earlier version.** Files written before this version keep
+their old names, and the plugin will not move, rename or delete them. When it
+notices output at an old path it names both the old and the new path in a
+notice and in the console, so you can move or delete the old copy yourself.

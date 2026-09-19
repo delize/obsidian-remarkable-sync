@@ -93,6 +93,13 @@ Folder hierarchy is preserved:
 
 Blank pages are skipped. A page holding only a placed image counts as content and is rendered. That covers images dragged into a notebook from the desktop app (reMarkable OS 3.27) and images made with the capture tool (3.28).
 
+Characters a file system or an Obsidian link cannot carry (`\ / : * ? " < > |
+[ ] # ^`) are replaced with `-`, so a notebook called `Q3/Q4 review` becomes one
+file named `Q3-Q4 review` rather than two folders. The same rule applies on
+every platform, so the vault stays usable when synced between Windows, macOS,
+Linux and Android. Files written by earlier versions keep their old names; the
+plugin reports where they are and never moves or deletes them.
+
 ## rmfakecloud
 
 This plugin supports [rmfakecloud](https://github.com/ddvk/rmfakecloud), a self-hosted reMarkable cloud replacement. To use it:

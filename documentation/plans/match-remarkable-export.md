@@ -12,7 +12,13 @@ it cannot be confused with our output.
 > `remarkable/sample (annotated).pdf` in the vault, is **our own plugin's output**: the vault is
 > where the plugin writes, and the device carries a document named "sample (annotated)", so our sync
 > overwrites that path. It can never hold reMarkable's export.
->
+
+**Update, 2026-09-19.** Names are now sanitised before they become vault paths, which
+removes the `/`-creates-folders class of overwrite. The specific collision here is NOT
+fixed: parentheses are deliberately preserved (the output suffixes depend on them), so a
+device document named `sample (annotated)` still resolves to the same path as the annotated
+copy of `sample`. See `documentation/history/2026-09-19.md`, "Known, not fixed".
+
 > Proved by our own renderer's signature in it: pdf-lib's `drawSvgPath` emits an identity translate
 > and a `1 0 0 -1 0 0 cm` y-flip per call, and the file has exactly 5 flips for our 5 wash strokes,
 > 10 identity translates, and the same 709 three-decimal and 5703 six-decimal path coordinates as a

@@ -30,27 +30,28 @@ Domain Types (domain/)
 
 ### Services
 
-| Service                              | Responsibility                                                          |
-| ------------------------------------ | ----------------------------------------------------------------------- |
-| `auth/remarkable-auth.service`       | Device registration, token management, auto-refresh                     |
-| `auth/token-store`                   | Read/write tokens to `~/.remarkable-sync/token.json`                    |
-| `cloud/cloud-urls`                   | Resolve auth/sync base URLs based on settings (official vs rmfakecloud) |
-| `cloud/remarkable-cloud.service`     | List documents, download files via sync v1.5 protocol                   |
-| `cloud/sync-protocol`                | Root hash, signed URL blob fetching, index parsing                      |
-| `parser/rm-file-parser`              | Parse .rm v6 binary format into stroke data                             |
-| `parser/document-parser.service`     | Parse file maps into Notebooks; keeps the source PDF/EPUB and page map  |
-| `renderer/stroke-renderer`           | Render individual strokes to canvas                                     |
-| `renderer/page-renderer.service`     | Render full pages to PNG/JPEG                                           |
-| `output/markdown-writer.service`     | Save images and PDFs to vault; skips writes whose bytes are unchanged   |
-| `output/pdf-writer.service`          | Build a PDF from rendered pages (pdf-lib), deterministic output         |
-| `output/pdf-coordinates`             | Map .rm stroke coordinates onto a source PDF page (pure functions)      |
-| `output/pdf-annotator.service`       | Draw ink and embed text highlights onto the source PDF                  |
-| `output/highlights-markdown`         | Build a markdown note from a document's text highlights                 |
-| `output/document-output.service`     | Shared render-and-write loop for cloud sync and .rmdoc import           |
-| `pipeline/notebook-pipeline.service` | Per-notebook orchestrator: download → parse → render → save             |
-| `sync/sync-store.service`            | Sync state persistence via plugin data; prunes orphaned entries         |
-| `sync/auto-sync.service`             | Opt-in background sync timer (guards: disconnected, overlapping runs)   |
-| `import/rmdoc-import.service`        | Import local .rmdoc files: extract ZIP → parse → render → save          |
+| Service                              | Responsibility                                                           |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| `auth/remarkable-auth.service`       | Device registration, token management, auto-refresh                      |
+| `auth/token-store`                   | Read/write tokens to `~/.remarkable-sync/token.json`                     |
+| `cloud/cloud-urls`                   | Resolve auth/sync base URLs based on settings (official vs rmfakecloud)  |
+| `cloud/remarkable-cloud.service`     | List documents, download files via sync v1.5 protocol                    |
+| `cloud/sync-protocol`                | Root hash, signed URL blob fetching, index parsing                       |
+| `parser/rm-file-parser`              | Parse .rm v6 binary format into stroke data                              |
+| `parser/document-parser.service`     | Parse file maps into Notebooks; keeps the source PDF/EPUB and page map   |
+| `renderer/stroke-renderer`           | Render individual strokes to canvas                                      |
+| `renderer/page-renderer.service`     | Render full pages to PNG/JPEG                                            |
+| `output/markdown-writer.service`     | Save images and PDFs to vault; skips writes whose bytes are unchanged    |
+| `output/pdf-writer.service`          | Build a PDF from rendered pages (pdf-lib), deterministic output          |
+| `output/pdf-coordinates`             | Map .rm stroke coordinates onto a source PDF page (pure functions)       |
+| `output/pdf-annotator.service`       | Draw ink and embed text highlights onto the source PDF                   |
+| `output/highlights-markdown`         | Build a markdown note from a document's text highlights                  |
+| `output/document-output.service`     | Shared render-and-write loop for cloud sync and .rmdoc import            |
+| `output/legacy-paths`                | Report output left at the pre-sanitisation path; never mutates the vault |
+| `pipeline/notebook-pipeline.service` | Per-notebook orchestrator: download → parse → render → save              |
+| `sync/sync-store.service`            | Sync state persistence via plugin data; prunes orphaned entries          |
+| `sync/auto-sync.service`             | Opt-in background sync timer (guards: disconnected, overlapping runs)    |
+| `import/rmdoc-import.service`        | Import local .rmdoc files: extract ZIP → parse → render → save           |
 
 ### UI
 
