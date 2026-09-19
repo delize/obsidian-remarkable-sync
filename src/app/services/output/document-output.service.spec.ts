@@ -262,12 +262,13 @@ async function runSourceBacked(
     h: Harness,
     settings: Partial<PluginSettings>,
     pages: Page[],
-    source: SourceDocument | null = sourcePdf()
+    source: SourceDocument | null = sourcePdf(),
+    notebookName = 'Book'
 ): Promise<Awaited<ReturnType<typeof renderAndWritePages>>> {
     return renderAndWritePages(
         {
             pages,
-            notebookName: 'Book',
+            notebookName,
             folderPath: 'Work',
             settings: { ...DEFAULT_SETTINGS, ...settings },
             vault: {} as Vault,
@@ -471,5 +472,26 @@ describe('highlights note toggle', () => {
 
         expect(h.pdfWrites).toHaveLength(0)
         expect(result.highlightsNoteWritten).toBe(true)
+    })
+})
+
+describe('names that need sanitising', () => {
+    test('the highlights note links to the file the writer produced', async () => {
+        // The link target and the written file name used to be built by two
+        // separate expressions. Sanitising the writer alone would have left
+        // the note pointing at a name that no longer exists on disk.
+        const h = createHarness()
+        await runSourceBacked(
+            h,
+            { savePdf: true, saveImages: false, saveHighlightsNote: true },
+            [highlightedPage(0)],
+            sourcePdf(),
+            'C# notes'
+        )
+
+        // The writer receives the raw stem and sanitises it on the way to a
+        // path; the note must name the sanitised result.
+        expect(h.pdfWrites.map((w) => w.name)).toContain('C# notes (annotated)')
+        expect(h.notesWritten[0]!.contents).toContain('[[C- notes (annotated).pdf]]')
     })
 })

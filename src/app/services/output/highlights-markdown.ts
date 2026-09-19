@@ -1,4 +1,5 @@
 import type { Highlight, Page } from '../../domain/notebook'
+import { sanitiseName } from '../../../utils/sanitise-path'
 
 /**
  * Score how plausible it is that a line break sat immediately before `index`.
@@ -179,6 +180,26 @@ export function hasHighlights(pages: readonly Page[]): boolean {
  * document has not changed, so the skip-if-unchanged write guard can leave it
  * alone.
  */
+/**
+ * The link target for a document the writer produced.
+ *
+ * Applies the writer's own naming rule rather than a second, different escape
+ * set. That distinction matters: an escape tuned for wikilink syntax would
+ * produce a link matching no file on disk, which is a silently broken link and
+ * harder to notice than the raw character was.
+ *
+ * Idempotent, so an already-sanitised name passes through untouched and this
+ * can only ever repair a link. Takes a file NAME, not a path, so a `/` is
+ * replaced rather than preserved.
+ */
+export function toWikilinkTarget(fileName: string): string {
+    const dot = fileName.lastIndexOf('.')
+    if (dot <= 0) {
+        return sanitiseName(fileName)
+    }
+    return `${sanitiseName(fileName.slice(0, dot))}${fileName.slice(dot)}`
+}
+
 export function buildHighlightsNote(options: HighlightNoteOptions): string {
     const { documentName, pages, annotatedPath } = options
     const byPage = collect(pages)
@@ -186,7 +207,7 @@ export function buildHighlightsNote(options: HighlightNoteOptions): string {
     const lines: string[] = [`# ${documentName} — highlights`, '']
 
     if (annotatedPath) {
-        lines.push(`Annotated document: [[${annotatedPath}]]`, '')
+        lines.push(`Annotated document: [[${toWikilinkTarget(annotatedPath)}]]`, '')
     }
 
     const total = byPage.reduce((n, p) => n + p.highlights.length, 0)

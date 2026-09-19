@@ -1,9 +1,16 @@
 import { TFile } from 'obsidian'
 import type { Vault } from 'obsidian'
 import { log } from '../../../utils/log'
+import { sanitiseName, sanitiseRelativePath } from '../../../utils/sanitise-path'
 
 /**
- * Build the full vault path for a page file
+ * Build the full vault path for a page file.
+ *
+ * Every component is sanitised here rather than at the write call, because
+ * this is the last point at which `targetFolder`, `folderPath` and
+ * `notebookName` are still distinct strings. Once they are joined, a `/` that
+ * came from inside a notebook name is indistinguishable from a separator we
+ * added, and the folder it silently creates cannot be undone.
  */
 export function buildPagePath(
     targetFolder: string,
@@ -12,17 +19,24 @@ export function buildPagePath(
     pageIndex: number,
     extension: string
 ): string {
+    // `folderPath` arrives pre-joined from the cloud service, so it is
+    // sanitised per segment; the notebook name is one component and is used
+    // for both the folder and the file stem.
+    const safeTarget = sanitiseRelativePath(targetFolder)
+    const safeFolders = sanitiseRelativePath(folderPath)
+    const safeName = sanitiseName(notebookName)
+
     const pageNum = String(pageIndex + 1).padStart(3, '0')
-    const fileName = `${notebookName}-P${pageNum}.${extension}`
+    const fileName = `${safeName}-P${pageNum}.${extension}`
 
     const parts: string[] = []
-    if (targetFolder) {
-        parts.push(targetFolder)
+    if (safeTarget) {
+        parts.push(safeTarget)
     }
-    if (folderPath) {
-        parts.push(folderPath)
+    if (safeFolders) {
+        parts.push(safeFolders)
     }
-    parts.push(notebookName)
+    parts.push(safeName)
     parts.push(fileName)
 
     return parts.join('/')
@@ -41,16 +55,30 @@ export function buildDocumentPath(
     notebookName: string,
     extension: string
 ): string {
+    const safeTarget = sanitiseRelativePath(targetFolder)
+    const safeFolders = sanitiseRelativePath(folderPath)
+
     const parts: string[] = []
-    if (targetFolder) {
-        parts.push(targetFolder)
+    if (safeTarget) {
+        parts.push(safeTarget)
     }
-    if (folderPath) {
-        parts.push(folderPath)
+    if (safeFolders) {
+        parts.push(safeFolders)
     }
-    parts.push(`${notebookName}.${extension}`)
+    parts.push(documentFileName(notebookName, extension))
 
     return parts.join('/')
+}
+
+/**
+ * The file name a whole-document output is written under.
+ *
+ * Exported so the highlights note can derive its wikilink target from the same
+ * expression the writer uses. Composing the two independently is how the note
+ * ended up pointing at a file that does not exist.
+ */
+export function documentFileName(notebookName: string, extension: string): string {
+    return `${sanitiseName(notebookName)}.${extension}`
 }
 
 /**

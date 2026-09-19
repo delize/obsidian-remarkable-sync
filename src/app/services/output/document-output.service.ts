@@ -10,6 +10,7 @@ import type { PdfPageImage } from './pdf-writer.service'
 import { annotateSourcePdf } from './pdf-annotator.service'
 import {
     ANNOTATED_SUFFIX,
+    documentFileName,
     writeDocumentFile,
     writeDocumentPdf,
     writeMarkdownNote,
@@ -77,7 +78,7 @@ export interface RenderAndWriteResult {
 }
 
 /** Suffix for the markdown note holding a document's typed text. */
-const TYPED_TEXT_SUFFIX = ' (text)'
+export const TYPED_TEXT_SUFFIX = ' (text)'
 
 /** Suffix for the markdown note listing a document's text highlights. */
 export const HIGHLIGHTS_SUFFIX = ' (highlights)'
@@ -270,7 +271,12 @@ export async function renderAndWritePages(
                 documentName: notebookName,
                 pages,
                 ...(annotatedWritten
-                    ? { annotatedPath: `${notebookName}${ANNOTATED_SUFFIX}.pdf` }
+                    ? {
+                          annotatedPath: documentFileName(
+                              `${notebookName}${ANNOTATED_SUFFIX}`,
+                              'pdf'
+                          )
+                      }
                     : {})
             })
         )

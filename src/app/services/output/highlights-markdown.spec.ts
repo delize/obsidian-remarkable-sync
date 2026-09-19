@@ -1,5 +1,10 @@
 import { test, expect, describe } from 'bun:test'
-import { buildHighlightsNote, hasHighlights, normaliseHighlightText } from './highlights-markdown'
+import {
+    buildHighlightsNote,
+    hasHighlights,
+    normaliseHighlightText,
+    toWikilinkTarget
+} from './highlights-markdown'
 import type { Highlight, Page } from '../../domain/notebook'
 import { StrokeColor } from '../../domain/notebook'
 
@@ -175,5 +180,38 @@ describe('buildHighlightsNote', () => {
         })
         expect(note.endsWith('\n')).toBe(true)
         expect(note.endsWith('\n\n')).toBe(false)
+    })
+})
+
+describe('toWikilinkTarget', () => {
+    test("applies the writer's naming rule to the stem, keeping the extension", () => {
+        expect(toWikilinkTarget('C# notes (annotated).pdf')).toBe('C- notes (annotated).pdf')
+    })
+
+    test('leaves an already-sanitised name untouched', () => {
+        // Idempotent, so this can only ever repair a link, never break one.
+        expect(toWikilinkTarget('C- notes (annotated).pdf')).toBe('C- notes (annotated).pdf')
+    })
+
+    test('treats the value as a name, not a path', () => {
+        // A `/` here came from inside a notebook name; preserving it would
+        // point the link at a folder that does not exist.
+        expect(toWikilinkTarget('Trips/Japan.pdf')).toBe('Trips-Japan.pdf')
+    })
+})
+
+describe('buildHighlightsNote link target', () => {
+    test('links to the file the writer actually produced', () => {
+        // The link and the file name used to be composed by two different
+        // expressions, so sanitising the writer alone would have left the note
+        // pointing at a name that no longer exists.
+        const note = buildHighlightsNote({
+            documentName: 'C# notes',
+            pages: [page(1, [highlight('a')])],
+            annotatedPath: 'C# notes (annotated).pdf'
+        })
+
+        expect(note).toContain('[[C- notes (annotated).pdf]]')
+        expect(note).not.toContain('[[C# notes')
     })
 })

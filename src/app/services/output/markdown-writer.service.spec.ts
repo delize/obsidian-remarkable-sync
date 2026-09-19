@@ -3,6 +3,7 @@ import { TFile, type Vault } from 'obsidian'
 import {
     buildDocumentPath,
     buildPagePath,
+    documentFileName,
     buffersEqual,
     writeBinaryIfChanged,
     writeDocumentPdf,
@@ -79,6 +80,28 @@ describe('buildPagePath', () => {
 
     test('pads page number to 3 digits', () => {
         expect(buildPagePath('', '', 'Notebook', 9, 'png')).toBe('Notebook/Notebook-P010.png')
+    })
+})
+
+describe('buildPagePath sanitisation', () => {
+    test('a slash in the name makes one file, not two folders', () => {
+        // The headline bug: the device allows `/` in a notebook name and the
+        // writer turned it into a directory separator.
+        expect(buildPagePath('', '', 'Trips/Japan', 0, 'png')).toBe(
+            'Trips-Japan/Trips-Japan-P001.png'
+        )
+    })
+
+    test('sanitises the target folder, each folder segment and the name', () => {
+        // folderPath arrives pre-joined, so its segments are handled
+        // individually: the hierarchy survives, the bad characters do not.
+        expect(buildPagePath('rM', 'Work/Q3:notes', 'Meeting?', 0, 'jpeg')).toBe(
+            'rM/Work/Q3-notes/Meeting-/Meeting--P001.jpeg'
+        )
+    })
+
+    test('a traversal in the target folder cannot escape the vault', () => {
+        expect(buildPagePath('../../etc', '', 'x', 0, 'png')).toBe('etc/x/x-P001.png')
     })
 })
 
@@ -220,5 +243,36 @@ describe('writeDocumentPdf', () => {
         await writeDocumentPdf(vault, 'rM', 'Work', 'Meeting', bytes(1, 2, 3))
 
         expect(calls.modified).toEqual(['rM/Work/Meeting.pdf'])
+    })
+})
+
+describe('buildDocumentPath sanitisation', () => {
+    test('replaces a character that breaks a wikilink', () => {
+        // `#` is legal in a macOS file name but reads as a heading reference
+        // inside [[...]].
+        expect(buildDocumentPath('', '', 'C# notes', 'pdf')).toBe('C- notes.pdf')
+    })
+
+    test('a traversal cannot escape the vault', () => {
+        expect(buildDocumentPath('../../etc', '', 'x', 'md')).toBe('etc/x.md')
+    })
+
+    test('keeps the output suffixes intact', () => {
+        // The suffixes are appended by the caller before the builder runs, and
+        // the parentheses they depend on must not be replaced.
+        expect(buildDocumentPath('', '', 'Meeting (annotated)', 'pdf')).toBe(
+            'Meeting (annotated).pdf'
+        )
+        expect(buildDocumentPath('', '', 'Meeting (highlights)', 'md')).toBe(
+            'Meeting (highlights).md'
+        )
+    })
+})
+
+describe('documentFileName', () => {
+    test('is the one definition of what a document file is called', () => {
+        // The highlights note derives its link target from this, so the link
+        // and the file cannot drift apart.
+        expect(documentFileName('C# notes (annotated)', 'pdf')).toBe('C- notes (annotated).pdf')
     })
 })
