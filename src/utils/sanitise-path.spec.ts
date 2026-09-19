@@ -1,0 +1,187 @@
+import { test, expect, describe } from 'bun:test'
+import {
+    sanitiseName,
+    sanitiseRelativePath,
+    validateVaultFolderPath,
+    FALLBACK_NAME,
+    MAX_NAME_BYTES
+} from './sanitise-path'
+
+const utf8 = new TextEncoder()
+
+/** Names chosen to exercise every branch, used for the idempotence sweep. */
+const HOSTILE_NAMES: readonly string[] = [
+    'Trips/Japan',
+    'C# notes',
+    'Q3: Review <draft>?',
+    'a<>b',
+    'a--b',
+    '.hidden',
+    '..',
+    '///',
+    '   ',
+    '',
+    'CON',
+    'com9',
+    'trailing. ',
+    'x'.repeat(200),
+    '名前'.repeat(80),
+    'hascontrol',
+    'Notes [v2] ^block|alias'
+]
+
+describe('sanitiseName', () => {
+    test('replaces a path separator so one name stays one file', () => {
+        // The headline bug: a `/` in a device name silently created folders.
+        expect(sanitiseName('Trips/Japan')).toBe('Trips-Japan')
+    })
+
+    test('replaces every character in the union set', () => {
+        // Applied on every host, not just the host's own set, because a vault
+        // is synced between machines.
+        for (const char of ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '[', ']', '#', '^']) {
+            expect(sanitiseName(`a${char}b`), `for ${char}`).toBe('a-b')
+        }
+    })
+
+    test('collapses a run of replaced characters into one hyphen', () => {
+        expect(sanitiseName('a<>b')).toBe('a-b')
+    })
+
+    test('leaves a run of hyphens the user typed themselves', () => {
+        // Collapsing only applies to characters we replaced. Rewriting the
+        // user's own punctuation would be a different, unasked-for change.
+        expect(sanitiseName('a--b')).toBe('a--b')
+    })
+
+    test('replaces a leading dot', () => {
+        // Obsidian excludes dot-prefixed files from the vault index, so the
+        // file would sync to somewhere the user can never see it.
+        expect(sanitiseName('.hidden')).toBe('-hidden')
+        expect(sanitiseName('...hidden')).toBe('-hidden')
+    })
+
+    test('strips trailing dots and spaces', () => {
+        // Windows strips these at creation, so the file lands at a path we did
+        // not ask for. The next sync then fails to find it and rewrites it,
+        // which defeats the skip-if-unchanged guard.
+        expect(sanitiseName('trailing. ')).toBe('trailing')
+        expect(sanitiseName('trailing...')).toBe('trailing')
+    })
+
+    test('removes control characters rather than hyphenating them', () => {
+        // A hyphen standing in for an invisible byte is a hyphen the user
+        // cannot explain.
+        expect(sanitiseName('hascontrol')).toBe('hascontrol')
+    })
+
+    test('falls back when nothing usable survives', () => {
+        expect(sanitiseName('')).toBe(FALLBACK_NAME)
+        expect(sanitiseName('   ')).toBe(FALLBACK_NAME)
+        // `///` reduces to a bare `-`, which is legal but useless, and two
+        // different garbage names would collide there anyway.
+        expect(sanitiseName('///')).toBe(FALLBACK_NAME)
+    })
+
+    test('suffixes Windows reserved device names', () => {
+        // Reserved whatever the extension: `CON.md` is still `CON`.
+        expect(sanitiseName('CON')).toBe('CON-')
+        expect(sanitiseName('con')).toBe('con-')
+        expect(sanitiseName('com9')).toBe('com9-')
+        expect(sanitiseName('LPT1')).toBe('LPT1-')
+    })
+
+    test('leaves names that merely start with a reserved word', () => {
+        // The boundary a sloppy regex gets wrong.
+        expect(sanitiseName('CONtext')).toBe('CONtext')
+        expect(sanitiseName('COM10')).toBe('COM10')
+    })
+
+    test('keeps the characters the output suffixes depend on', () => {
+        // ` (annotated)`, ` (highlights)` and ` (text)` are appended before the
+        // name reaches here, so parentheses must survive untouched.
+        expect(sanitiseName('Meeting (annotated)')).toBe('Meeting (annotated)')
+        expect(sanitiseName('A & B, part 2')).toBe('A & B, part 2')
+        expect(sanitiseName('名前')).toBe('名前')
+    })
+
+    test('caps length in bytes, not characters', () => {
+        // ext4 and APFS cap a component at 255 BYTES, so a CJK name is three
+        // times longer than its character count suggests.
+        const cjk = '名'.repeat(200)
+        expect(utf8.encode(sanitiseName(cjk)).length).toBeLessThanOrEqual(MAX_NAME_BYTES)
+    })
+
+    test('never splits a surrogate pair when truncating', () => {
+        const emoji = '🙂'.repeat(100)
+        const result = sanitiseName(emoji)
+        // A split pair leaves a lone surrogate, which is not a valid code point
+        // and encodes to U+FFFD, so a UTF-8 round trip no longer matches.
+        expect(new TextDecoder().decode(utf8.encode(result))).toBe(result)
+        expect(utf8.encode(result).length).toBeLessThanOrEqual(MAX_NAME_BYTES)
+    })
+
+    test('keeps two long names apart when both are truncated', () => {
+        // The trap this discriminator exists for: the suffix is appended by the
+        // caller BEFORE sanitising, so without it a long `X` and the same name
+        // plus ` (annotated)` truncate to the same string and the annotated PDF
+        // overwrites the source.
+        const long = 'x'.repeat(200)
+        expect(sanitiseName(long)).not.toBe(sanitiseName(`${long} (annotated)`))
+    })
+
+    test('is idempotent', () => {
+        // Load-bearing: the migration reporter compares an old path against a
+        // new one, and the wikilink and the writer sanitise the same stem
+        // independently and must agree.
+        for (const name of HOSTILE_NAMES) {
+            const once = sanitiseName(name)
+            expect(sanitiseName(once), `for ${JSON.stringify(name)}`).toBe(once)
+        }
+    })
+})
+
+describe('sanitiseRelativePath', () => {
+    test('sanitises each segment separately', () => {
+        // folderPath arrives pre-joined from the cloud service; treating it as
+        // one name would flatten a real hierarchy into one hyphenated folder.
+        expect(sanitiseRelativePath('Work/Q3:notes')).toBe('Work/Q3-notes')
+    })
+
+    test('drops traversal segments rather than sanitising them', () => {
+        // `-/-/etc` would look deliberate. Dropping is what contains it.
+        expect(sanitiseRelativePath('../../etc')).toBe('etc')
+        expect(sanitiseRelativePath('./a')).toBe('a')
+    })
+
+    test('drops empty segments', () => {
+        expect(sanitiseRelativePath('a//b')).toBe('a/b')
+    })
+
+    test('leaves an empty path empty', () => {
+        // The builders guard on `if (targetFolder)`, so this must not become
+        // `Untitled` or every path would gain a folder.
+        expect(sanitiseRelativePath('')).toBe('')
+    })
+
+    test('is idempotent', () => {
+        for (const path of ['../../etc', 'a//b', 'Work/Q3:notes', '', 'Trips/Japan']) {
+            const once = sanitiseRelativePath(path)
+            expect(sanitiseRelativePath(once), `for ${JSON.stringify(path)}`).toBe(once)
+        }
+    })
+})
+
+describe('validateVaultFolderPath', () => {
+    test('accepts the vault root and an ordinary path', () => {
+        expect(validateVaultFolderPath('')).toBeNull()
+        expect(validateVaultFolderPath('reMarkable')).toBeNull()
+        expect(validateVaultFolderPath('reMarkable/Notes')).toBeNull()
+    })
+
+    test('rejects traversal and unsafe characters', () => {
+        expect(validateVaultFolderPath('../../etc')).toBeString()
+        expect(validateVaultFolderPath('rM:notes')).toBeString()
+        expect(validateVaultFolderPath('.hidden')).toBeString()
+    })
+})
