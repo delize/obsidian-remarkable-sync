@@ -132,4 +132,11 @@ becomes `Untitled`, and a very long one is shortened.
 **Upgrading from an earlier version.** Files written before this version keep
 their old names, and the plugin will not move, rename or delete them. When it
 notices output at an old path it names both the old and the new path in a
-notice and in the console, so you can move or delete the old copy yourself.
+notice and in the console.
+
+Rename the old file to the new name from inside Obsidian rather than deleting
+it. Obsidian rewrites every link pointing at a file you rename, so your own
+notes keep working, and the renamed file then matches what the plugin is about
+to write, so the next sync leaves it alone instead of producing a second copy.
+Deleting it does neither: any link you had written to it breaks, and the next
+sync writes the file again under the new name.
