@@ -153,6 +153,20 @@ If you prefer not to use the environment variable, manually copy these files to 
 | `bun test`             | Run tests                         |
 | `bun run commit`       | Create a commit with Commitizen   |
 
+## Dependency overrides
+
+`package.json` carries an `overrides` block. A pin belongs there only while a dependent's declared range excludes the patched release of a package with an advisory. When every range accepts the fix, the pin comes out and a plain reinstall resolves the patched version. Each remaining pin, the range that forces it, and the advisory it blocks:
+
+| Pin                                        | Stale range                                                                | Advisory blocked                      | Drop when                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------ |
+| `tmp` 0.2.7                                | `external-editor@3.1.0` wants `^0.0.33` (via `inquirer`, via `commitizen`) | GHSA-ph9p-34f9-6g65 (high) in 0.0.33  | `external-editor` or `commitizen` moves to `tmp` 0.2.x |
+| `lodash` 4.18.1                            | `commitizen@4.3.1` pins `4.17.21` exactly                                  | GHSA-r5fr-rjxr-66jc (high) in 4.17.21 | `commitizen` releases with a newer `lodash`            |
+| `@conventional-changelog/git-client` 2.7.0 | `git-raw-commits@5.0.0` and `git-semver-tags@8.0.0` want `^1.0.0`          | GHSA-vh25-5764-9wcr (medium) in 1.0.1 | `conventional-changelog-cli` ships dependents on 2.x   |
+
+The last one forces a major version on two packages that did not ask for it. The release tooling (`bun scripts/calculate-next-version.ts`, `bun run release`) is the check that it still works; run it after touching that pin.
+
+To re-check the block, list every dependent's range from `bun.lock` and test the pinned version against it; `bun audit --audit-level=high` after removing a pin says whether it was still needed. Do not use `bun update <name>` on a package that is not a direct dependency: it adds the package to `devDependencies` instead of updating the lockfile entry.
+
 ## Troubleshooting
 
 ### Plugin not appearing in Obsidian
