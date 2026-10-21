@@ -165,6 +165,8 @@ If you prefer not to use the environment variable, manually copy these files to 
 
 The last one forces a major version on two packages that did not ask for it. The release tooling (`bun scripts/calculate-next-version.ts`, `bun run release`) is the check that it still works; run it after touching that pin.
 
+One moderate finding remains and is left alone on purpose: `moment` 2.29.4, declared by the `obsidian` typings package as an exact version (`2.29.4`, not a range), GHSA-4p3w-j4w9-5jqw. It cannot move within range because there is no range, and an override would force a version onto a package that deliberately pins it. It is also dev only: nothing under `src/` bundles `moment` (the production `main.js` contains no reference to it), and at runtime the plugin uses whatever `moment` Obsidian itself ships. The right fix is an `obsidian` release that raises the pin.
+
 To re-check the block, list every dependent's range from `bun.lock` and test the pinned version against it; `bun audit --audit-level=high` after removing a pin says whether it was still needed. Do not use `bun update <name>` on a package that is not a direct dependency: it adds the package to `devDependencies` instead of updating the lockfile entry.
 
 ## Troubleshooting
