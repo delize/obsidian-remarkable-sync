@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.1](https://github.com/dsebastien/obsidian-remarkable-sync/compare/2.4.0...2.4.1) (2026-10-22)
+
+### Bug Fixes
+
+* **settings:** handle a cleared device token secret picker ([4da7cff](https://github.com/dsebastien/obsidian-remarkable-sync/commit/4da7cff63480f8895db434bc49ddedd9f97b7e6f))
+
+### Reverts
+
+* Revert "chore(deps-dev): bump conventional-changelog-conventionalcommits" ([4b7c1b4](https://github.com/dsebastien/obsidian-remarkable-sync/commit/4b7c1b4cdc3c638e4cbedc0a37ea448c6ce33fa2))
+
 ## [2.4.0](https://github.com/dsebastien/obsidian-remarkable-sync/compare/2.3.0...2.4.0) (2026-10-03)
 
 ### Improved
@@ -361,6 +371,7 @@ advisory from the previous commit is now satisfied.
 - Inline progress indicators per notebook in panel
 - Settings for target folder, image format
 - Token storage outside vault for security
+
 
 
 

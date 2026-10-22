@@ -1,5 +1,15 @@
 # Release Notes
 
+## 2.4.1 (2026-10-22)
+
+### Bug Fixes
+
+- **settings:** handle a cleared device token secret picker
+
+### Reverts
+
+- Revert "chore(deps-dev): bump conventional-changelog-conventionalcommits"
+
 ## 2.4.0 (2026-10-03)
 
 ### Improved
