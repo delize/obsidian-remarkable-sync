@@ -47,6 +47,12 @@ updates:
           - dependency-name: '@commitlint/*'
             update-types:
                 - version-update:semver-major
+          # Preset 10 needs conventional-changelog-writer 9+, but
+          # conventional-changelog-cli 5 ships writer 8: the release workflow's
+          # changelog step fails (2.4.1 attempt). Upgrade with the CLI.
+          - dependency-name: conventional-changelog-conventionalcommits
+            update-types:
+                - version-update:semver-major
 
     # Keeps the action pins in .github/workflows current. Nothing else watches
     # these: they are outside every package manifest in the repo.
